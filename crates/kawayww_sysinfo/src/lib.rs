@@ -1,15 +1,6 @@
 #![allow(unused)]
 
-mod models;
+pub mod models;
+mod platforms;
 
-cfg_if::cfg_if! {
-    if #[cfg(any(
-        target_os = "macos", target_os = "ios",
-        target_os = "linux", target_os = "android",
-        target_os = "freebsd"))
-    ] {
-       mod unix;
-    }
-}
-
-pub use models::*;
+pub use platforms::Platform;

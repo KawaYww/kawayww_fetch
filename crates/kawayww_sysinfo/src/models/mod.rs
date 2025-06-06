@@ -1,23 +1,69 @@
 #[derive(Debug)]
 pub struct CPUInfo {
     pub(crate) brand: String,
-    pub(crate) core_num: (u64, u64), // (physical-cores number, logical-cores number)
-    pub(crate) frequency: f64,       // MHz
+    pub(crate) physical_core_num: usize,
+    pub(crate) logical_core_num: usize,
+    pub(crate) freq_khz: u64,       // KHz
 }
 
 impl CPUInfo {
+    const ONE_KHZ: f64 = 1.0;
+    const ONE_MHZ: f64 = Self::ONE_KHZ * 1000.0;
+    const ONE_GHZ: f64 = Self::ONE_MHZ * 1000.0;
+
+    pub fn new(brand: String, physical_core_num: usize, logical_core_num: usize, freq_khz: u64) -> Self {
+        Self {
+            brand,
+            physical_core_num,
+            logical_core_num,
+            freq_khz,
+        }
+    }
+
+
     pub fn brand(&self) -> &str {
         self.brand.as_str()
     }
 
-    pub fn core_num(&self) -> (u64, u64) {
-        self.core_num
+    pub fn core_num(&self) -> (usize, usize) {
+        (self.physical_core_num, self.logical_core_num)
     }
 
-    pub fn frequency(&self) -> f64 {
-        self.frequency
+    pub fn physical_core_num(&self) -> usize {
+        self.physical_core_num
+    }
+
+    pub fn logical_core_num(&self) -> usize {
+        self.logical_core_num
+    }
+
+    pub fn freq_khz(&self) -> u64 {
+        self.freq_khz
+    }
+
+    pub fn freq_mhz(&self) -> f64 {
+        (self.freq_khz as f64 / Self::ONE_MHZ * 10.0).round() / 10.0
+    }
+
+    pub fn freq_ghz(&self) -> f64 {
+        (self.freq_khz as f64 / Self::ONE_GHZ * 10.0).round() / 10.0
     }
 }
+
+#[test]
+fn cpu_freq_hz() {
+    let cpu_info = CPUInfo {
+        brand: String::from("Testing"),
+        physical_core_num: 100000,
+        logical_core_num: 200000,
+        freq_khz: 1776664
+    };
+
+    assert_eq!(cpu_info.freq_khz(), 1776664);
+    assert_eq!(cpu_info.freq_mhz(), 1776.7);
+    assert_eq!(cpu_info.freq_ghz(), 1.8);
+}
+
 
 #[derive(Debug)]
 pub struct Uptime {
@@ -30,14 +76,10 @@ impl Uptime {
     const ONE_HOUR: u64 = Self::ONE_MINUTE * 60;
     const ONE_DAY: u64 = Self::ONE_HOUR * 24;
     const ONE_MONTH: u64 = Self::ONE_DAY * 30; // almost
-    const ONE_YEAR: u64 = Self::ONE_MONTH * 12;
+    const ONE_YEAR: u64 = Self::ONE_MONTH * 12; // alomost
 
     fn time_format(secs: u64, max_units_len: Option<usize>) -> String {
-        let max_units_len = max_units_len.unwrap_or(6);
-        assert!(
-            (1..=6).contains(&max_units_len),
-            "`max_units_len` should be one in [1, 2, 3, 4, 5, 6]"
-        );
+        let max_units_len = max_units_len.unwrap_or(6).clamp(1, 6);
 
         let mut remaining = secs;
 
@@ -133,36 +175,69 @@ impl Uptime {
 }
 
 #[test]
-pub fn uptime_format() {
+pub fn time_format() {
     let uptime = Uptime {
         uptime_secs: 133799999,
         idle_secs: 56600,
     };
 
-    let time_format = uptime.uptime_format(Some(6));
+    let uptime_format = uptime.uptime_format(Some(6));
+    let idle_format = uptime.idle_format(Some(6));
     assert_eq!(
-        time_format,
+        uptime_format,
         "4 years, 3 months, 18 days, 14 hours, 39 minutes, 59 seconds"
     );
+    assert_eq!(
+        idle_format,
+        "15 hours, 43 minutes, 20 seconds"
+    );
 
-    let time_format = uptime.uptime_format(Some(3));
-    assert_eq!(time_format, "4 years, 3 months, 18 days");
+    let uptime_format = uptime.uptime_format(Some(3));
+    let idle_format = uptime.idle_format(Some(3));
+    assert_eq!(uptime_format, "4 years, 3 months, 18 days");
+    assert_eq!(idle_format, "15 hours, 43 minutes, 20 seconds");
 
-    let time_format = uptime.uptime_format(Some(1));
-    assert_eq!(time_format, "4 years");
+    let uptime_format = uptime.uptime_format(Some(1));
+    let idle_format = uptime.idle_format(Some(1));
+    assert_eq!(uptime_format, "4 years");
+    assert_eq!(idle_format, "15 hours");
 }
 
 #[test]
-#[should_panic]
-pub fn uptime_format_over_max_units_len() {
+pub fn time_format_over_max_units_len() {
     let uptime = Uptime {
         uptime_secs: 133799999,
         idle_secs: 56600,
     };
 
-    let time_format = uptime.uptime_format(Some(100));
+    let uptime_format = uptime.uptime_format(Some(100));
+    let idle_format = uptime.idle_format(Some(100));
     assert_eq!(
-        time_format,
+        uptime_format,
         "4 years, 3 months, 18 days, 14 hours, 39 minutes, 59 seconds"
     );
+    assert_eq!(
+        idle_format,
+        "15 hours, 43 minutes, 20 seconds"
+    );
+}
+
+
+#[derive(Debug)]
+pub struct OSRelease {
+    pub(crate) name: String,
+    pub(crate) pretty_name: String,
+    pub(crate) version: Option<String>, // `None` for rolling system
+    pub(crate) version_id: Option<String>,
+    pub(crate) version_codename: Option<String>,
+}
+
+impl OSRelease {
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn version(&self) -> Option<&str> {
+        self.version.as_deref()
+    }
 }

@@ -1,60 +1,16 @@
-use crate::models::CPUInfo;
-use std::{
-    io::{BufRead, BufReader},
-    path::Path,
-};
+use std::path::Path;
 
-impl CPUInfo {
-    pub fn new() -> Option<Self> {
-        let content = Self::read_file("/proc/cpuinfo")?;
-        let (brand, core_num, frequency) = Self::parse_content(content)?;
-
-        Some(Self {
-            brand,
-            core_num,
-            frequency,
-        })
-    }
-
-    fn read_file(path: impl AsRef<Path>) -> Option<String> {
-        std::fs::read_to_string(path).ok()
-    }
-
-    fn parse_content(content: String) -> Option<(String, (u64, u64), f64)> {
-        let mut brand = None;
-        let mut physical_core_num = None;
-        let mut logical_core_num = 0;
-        let mut frequency = None;
-
-
-        for line in content.lines().filter(|x| !x.is_empty()) {
-            let (head, tail) = line.split_once(':').map(|(a, b)| (a.trim(), b.trim()))?;
-
-            if brand.is_none() && head == "model name" {
-                brand = Some(tail.to_string());
-            } else if physical_core_num.is_none() && head == "cpu cores" {
-                physical_core_num = tail.parse().ok();
-            } else if frequency.is_none() && head == "cpu MHz" {
-                frequency = tail.parse().ok();
-            } else if head == "processor" {
-                logical_core_num += 1;
-            }
-
-            if brand.is_some() && physical_core_num.is_some() && frequency.is_some() {
-                continue;
-            }
-        }
-        Some((
-            brand?,
-            (physical_core_num?, logical_core_num),
-            frequency?,
-        ))
-    }
-}
-
-#[test]
-fn cpuinfo() {
-    let content = String::from("
+// static resources for tests
+#[allow(non_snake_case)]
+pub(crate) mod FILES {
+    // /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+    pub(crate) const SCALING_CUR_FREQ: &str = "1776714\n";
+    
+    // /proc/uptime
+    pub(crate) const UPTIME: &str = "3323.71 36380.42\n";
+    
+    // /proc/cpuinfo
+    pub(crate) const CPUINFO: &str = "
 processor	: 0
 vendor_id	: AuthenticAMD
 cpu family	: 23
@@ -67,7 +23,7 @@ cache size	: 512 KB
 physical id	: 0
 siblings	: 16
 core id		: 0
-cpu cores	: 8
+cpu cores	: 1
 apicid		: 0
 initial apicid	: 0
 fpu		: yes
@@ -95,7 +51,7 @@ cache size	: 512 KB
 physical id	: 0
 siblings	: 16
 core id		: 0
-cpu cores	: 8
+cpu cores	: 1
 apicid		: 1
 initial apicid	: 1
 fpu		: yes
@@ -110,10 +66,11 @@ clflush size	: 64
 cache_alignment	: 64
 address sizes	: 48 bits physical, 48 bits virtual
 power management: ts ttp tm hwpstate cpb eff_freq_ro [13] [14]
-");
-
-    let (brand, core_num, frequency) = CPUInfo::parse_content(content).unwrap();
-    assert_eq!(brand, "AMD Ryzen 7 5700U with Radeon Graphics");
-    assert_eq!(core_num, 8);
-    assert_eq!(frequency, 1775.083);
+";
 }
+
+
+pub(crate) fn read_file(path: impl AsRef<Path>) -> Option<String> {
+    std::fs::read_to_string(path).ok()
+}
+

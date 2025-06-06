@@ -57,9 +57,11 @@ fn fetch() {
         };
     }
 
-    let cpuinfo = sysinfo::CPUInfo::new().unwrap();
-    let uptime = sysinfo::Uptime::new().unwrap();
+    let platform = sysinfo::Platform;
 
-    pl!("cpu", format!("{}, {}, {}", cpuinfo.brand(), cpuinfo.core_num().0, cpuinfo.frequency()));
+    let cpuinfo = platform.cpu_info().unwrap();
+    let uptime = platform.uptime().unwrap();
+
+    pl!("cpu", format!("{}, {}, {}", cpuinfo.brand(), cpuinfo.physical_core_num(), cpuinfo.freq_ghz()));
     pl!("tm ", uptime.uptime_format(Some(1)));
 }
